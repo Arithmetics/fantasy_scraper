@@ -7,8 +7,8 @@ require 'csv'
 require 'gruff'
 
 class QBSeason
-  attr_accessor :games, :passing_completions, :passing_attempts, :completion_percentage, :passing_yards, :passing_touchdowns, :interceptions, :passing_attempts, :rushing_attempts, :rushing_yards, :rushing_touchdowns
-  def initialize(games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_touchdowns)
+  attr_accessor :games, :passing_completions, :passing_attempts, :completion_percentage, :passing_yards, :passing_touchdowns, :interceptions, :passing_attempts, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
+  def initialize(games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
     @games = games
     @passing_completions = passing_completions
     @passing_attempts = passing_attempts
@@ -67,60 +67,15 @@ class TESeason
 end 
 
 #class to create QB objects. each instance variable is an array of that stat by year. Coeresponding years are in the @year variable.
-class Quarterback
-  attr_accessor :name, :years, :games, :passing_completions, :passing_attempts, :completion_percentage, :passing_yards, :passing_touchdowns, :interceptions, :passing_attempts, :rushing_attempts, :rushing_yards, :rushing_touchdowns
-  def initialize(name, years, games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_touchdowns)
+class Player
+  attr_accessor :name, :date_of_birth, :college, :draft_pick, :seasons
+  def initialize(name, date_of_birth, college, draft_pick)
     @name = name
-    @years = years
-    @games = games
-    @passing_completions = passing_completions
-    @passing_attempts = passing_attempts
-    @completion_percentage = completion_percentage
-    @passing_yards = passing_yards
-    @passing_touchdowns = passing_touchdowns
-    @interceptions = interceptions
-    @rushing_attempts = rushing_attempts
-    @rushing_yards = rushing_yards
-    @rushing_touchdowns = rushing_touchdowns
+    @date_of_birth = date_of_birth
+    @college = college
+    @draft_pick = draft_pick
+    @seasons = {}
   end 
-end
-
-#class to create RB objects. each instance variable is an array of that stat by year. Coeresponding years are in the @year variable.
-class Runningback
-  attr_accessor :name, :years, :games, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns
-  def initialize(name, years, games, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns)
-    @name = name
-    @years = years
-    @games = games
-    @rushing_attempts = rushing_attempts
-    @rushing_yards = rushing_yards
-    @rushing_average = rushing_average
-    @rushing_touchdowns = rushing_touchdowns
-    @targets = targets
-    @receptions = receptions
-    @receiving_yards = receiving_yards
-    @receiving_average = receiving_average
-    @receiving_touchdowns = receiving_touchdowns
-  end
-end
-
-#class to create WR objects. each instance variable is an array of that stat by year. Coeresponding years are in the @year variable.
-class Widereceiver
-  attr_accessor :name, :years, :games, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
-  def initialize(name, years, games, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
-    @name = name
-    @years = years
-    @games = games
-    @targets = targets
-    @receptions = receptions
-    @receiving_yards = receiving_yards
-    @receiving_average = receiving_average
-    @receiving_touchdowns = receiving_touchdowns
-    @rushing_attempts = rushing_attempts
-    @rushing_yards = rushing_yards
-    @rushing_average = rushing_average
-    @rushing_touchdowns = rushing_touchdowns
-  end
 end
 
 
@@ -150,8 +105,21 @@ def gather_player_info(link, target_arr)
   draft = rows[/(?<=Draft: )(.+)(?=College:)/]
 end
 
+
 def gather_qb_stats(link, target_arr)
   page = Nokogiri::HTML(open(link))
+  
+  #gather info for the Player class
+  rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
+  name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
+  date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
+  college = rows[/(?<=College: )(.+)(?=DOB)/]
+  draft_pick = rows[/(?<=Draft: )(.+)(?=College:)/]
+  
+  player = Player.new(name, date_of_birth, college, draft_pick)
+  
+  
+  #now gather info for the QBSeason class. This only make a series of arrays
   rows = page.xpath("//table[@width='100%' and .//td/b[contains(., 'FPts/G')]]//td").text
   if rows != nil
     x = rows.split("\n")
@@ -269,12 +237,16 @@ def gather_qb_stats(link, target_arr)
         end
       end
     
-      name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
+      #this next part populates the .seasons hash with keys from the years array and another hash with each stat
+      
+      years.each_with_index do |x, i|
+        player.seasons[x] = QBSeason.new(games[i], passing_completions[i], passing_attempts[i], completion_percentage[i], passing_yards[i], passing_touchdowns[i], interceptions[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i])
+      end
     
     
-      x = Quarterback.new(name, years, games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_touchdowns)
+      # x = Quarterback.new(name, years, games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_touchdowns)
     
-      target_arr << x
+      target_arr << player
     
     end
   end
@@ -541,37 +513,8 @@ end
 
 
 
-gather_wr_stats("http://www.fftoday.com/stats/players/12692/Josh_Gordon", wrs)
-gather_wr_stats("http://www.fftoday.com/stats/players/13144/Cobi_Hamilton", wrs)
-
-p wrs[0].name
-p wrs[0].games
-p wrs[0].years
-p wrs[0].targets
-p wrs[0].receptions
-p wrs[0].receiving_yards
-p wrs[0].receiving_average
-p wrs[0].receiving_touchdowns
-p wrs[0].rushing_attempts
-p wrs[0].rushing_yards
-p wrs[0].rushing_average
-p wrs[0].rushing_touchdowns
-
-p wrs[1].name
-p wrs[1].games
-p wrs[1].years
-p wrs[1].targets
-p wrs[1].receptions
-p wrs[1].receiving_yards
-p wrs[1].receiving_average
-p wrs[1].receiving_touchdowns
-p wrs[1].rushing_attempts
-p wrs[1].rushing_yards
-p wrs[1].rushing_average
-p wrs[1].rushing_touchdowns
+gather_qb_stats("http://www.fftoday.com/stats/players/14191/Jimmy_Garoppolo", qbs)
 
 
 
-
-
-
+puts qbs[0].seasons[2016] 

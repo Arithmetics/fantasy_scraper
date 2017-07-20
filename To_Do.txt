@@ -1,0 +1,5 @@
+where im at:
+
+1. need to convert wr and rb into Season class structure
+2. need to create a TESeason
+
