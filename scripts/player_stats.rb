@@ -5,10 +5,12 @@ require 'pp'
 require 'googlecharts'
 require 'csv'
 require 'gruff'
+require 'date'
 
 class QBSeason
-  attr_accessor :games, :passing_completions, :passing_attempts, :completion_percentage, :passing_yards, :passing_touchdowns, :interceptions, :passing_attempts, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
-  def initialize(games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
+  attr_accessor :age, :games, :passing_completions, :passing_attempts, :completion_percentage, :passing_yards, :passing_touchdowns, :interceptions, :passing_attempts, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
+  def initialize(age, games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
+    @age = age
     @games = games
     @passing_completions = passing_completions
     @passing_attempts = passing_attempts
@@ -78,16 +80,14 @@ class Player
   end 
 end
 
-
-
-#finds the first player with that name in one of the positional arrays containing each player object
-def find_player(name, target_arr)
-  found = target_arr.find do |x| 
-   x.name == name
-  end
-  match_index = target_arr.index(found)
-  match_index
+#calculate age at begining of season
+def calc_age(dob, season_year)
+  date1 = Date.strptime(dob, '%Y-%m-%d')
+  date2 = Date.strptime("#{season_year}-09-07", '%Y-%m-%d')
+  days = date2 - date1
+  years = days/365.0
 end
+
 
 #queries the player_ids csv file, which has the player names and their id, to generate an array of link to the player page for each player in the document that coeresponds to that position
 def generate_link(position)
@@ -215,24 +215,10 @@ def gather_qb_stats(link, target_arr)
         end
       end
     
-      fantasy_points = []
-      x.each_with_index do |y,i|
-        if (i+4) % 17 == 0
-          fantasy_points.push(y.to_f)
-        end
-      end
-    
-      fantasy_points_per_game = []
-      x.each_with_index do |y,i|
-        if (i+3) % 17 == 0
-          fantasy_points_per_game.push(y.to_f)
-        end
-      end
-    
       #this next part populates the .seasons hash with keys from the years array and another hash with each stat
       
       years.each_with_index do |y, i|
-        player.seasons[y] = QBSeason.new(games[i], passing_completions[i], passing_attempts[i], completion_percentage[i], passing_yards[i], passing_touchdowns[i], interceptions[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i])
+        player.seasons[y] = QBSeason.new(calc_age(player.date_of_birth, y), games[i], passing_completions[i], passing_attempts[i], completion_percentage[i], passing_yards[i], passing_touchdowns[i], interceptions[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i])
       end
 
       target_arr << player
@@ -244,6 +230,18 @@ end
 #creates a player object with seasons from a link and puts it in the target array
 def gather_rb_stats(link, target_arr)
   page = Nokogiri::HTML(open(link))
+  
+  #gather info for the Player class
+  rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
+  name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
+  date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
+  college = rows[/(?<=College: )(.+)(?=DOB)/]
+  draft_pick = rows[/(?<=Draft: )(.+)(?=College:)/]
+  
+  player = Player.new(name, date_of_birth, college, draft_pick)
+  
+  
+  #now gather info for the RBSeason class. This only make a series of arrays
   rows = page.xpath("//table[@width='100%' and .//td/b[contains(., 'FPts/G')]]//td").text
   if rows != nil
     x = rows.split("\n")
@@ -340,16 +338,19 @@ def gather_rb_stats(link, target_arr)
         end
       end
     
-      name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
+      #this next part populates the .seasons hash with keys from the years array and another hash with each stat
+      
+      years.each_with_index do |y, i|
+        player.seasons[y] = RBSeason.new(games[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i], targets[i], receptions[i], receiving_yards[i], receiving_average[i], receiving_touchdowns[i])
+      end
     
-    
-      x = Runningback.new(name, years, games, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns)
-    
-      target_arr << x
+      target_arr << player
     
     end
   end
 end 
+
+
 
 #creates a player object with seasons from a link and puts it in the target array
 def gather_wr_stats(link, target_arr)
@@ -462,6 +463,33 @@ def gather_wr_stats(link, target_arr)
 end 
 
 
+qbs = []
+rbs = []
+wrs = []
+
+def create_qbs(arr)
+  generate_link("QB").each do |link|
+    gather_qb_stats(link, arr)
+  end
+end
+
+def create_rbs(arr)
+  generate_link("RB").each do |link|
+    gather_rb_stats(link, arr)
+  end
+end
+
+def create_wrs
+  generate_link("WR").each do |link|
+    gather_wr_stats(link, wrs)
+  end
+end
+
+
+
+
+
+
 
 
 
@@ -479,35 +507,19 @@ def find_max_completion_percentage(qb_obj_array, min_games=0, min_percentage=0, 
 end
 
 
-qbs = []
-rbs = []
-wrs = []
-
-
-def create_qbs(arr)
-  generate_link("QB").each do |link|
-    gather_qb_stats(link, arr)
-  end
-end
-
-def create_rbs
-  generate_link("RB").each do |link|
-    gather_rb_stats(link, rbs)
-  end
-end
-
-def create_wrs
-  generate_link("WR").each do |link|
-    gather_wr_stats(link, wrs)
-  end
-end
-
 
 
 def display_player_pTDs(player, year)
   unless player.seasons[year].class == NilClass
     player.seasons[year].passing_touchdowns
   end 
+end
+
+#finds the first player with that name in one of the positional arrays containing each player object
+def find_player(name, target_arr)
+  target_arr.find do |x| 
+   x.name == name
+  end
 end
 
 
