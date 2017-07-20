@@ -97,15 +97,7 @@ def generate_link(position)
   return links
 end 
 
-def gather_player_info(link, target_arr)
-  page = Nokogiri::HTML(open(link))
-  rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
-  date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
-  college = rows[/(?<=College: )(.+)(?=DOB)/]
-  draft = rows[/(?<=Draft: )(.+)(?=College:)/]
-end
-
-
+#creates a player object with seasons from a link and puts it in the target array
 def gather_qb_stats(link, target_arr)
   page = Nokogiri::HTML(open(link))
   
@@ -239,19 +231,17 @@ def gather_qb_stats(link, target_arr)
     
       #this next part populates the .seasons hash with keys from the years array and another hash with each stat
       
-      years.each_with_index do |x, i|
-        player.seasons[x] = QBSeason.new(games[i], passing_completions[i], passing_attempts[i], completion_percentage[i], passing_yards[i], passing_touchdowns[i], interceptions[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i])
+      years.each_with_index do |y, i|
+        player.seasons[y] = QBSeason.new(games[i], passing_completions[i], passing_attempts[i], completion_percentage[i], passing_yards[i], passing_touchdowns[i], interceptions[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i])
       end
-    
-    
-      # x = Quarterback.new(name, years, games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_touchdowns)
-    
+
       target_arr << player
     
     end
   end
 end 
 
+#creates a player object with seasons from a link and puts it in the target array
 def gather_rb_stats(link, target_arr)
   page = Nokogiri::HTML(open(link))
   rows = page.xpath("//table[@width='100%' and .//td/b[contains(., 'FPts/G')]]//td").text
@@ -361,6 +351,7 @@ def gather_rb_stats(link, target_arr)
   end
 end 
 
+#creates a player object with seasons from a link and puts it in the target array
 def gather_wr_stats(link, target_arr)
   page = Nokogiri::HTML(open(link))
   rows = page.xpath("//table[@width='100%' and .//td/b[contains(., 'FPts/G')]]//td").text
@@ -493,9 +484,9 @@ rbs = []
 wrs = []
 
 
-def create_qbs
+def create_qbs(arr)
   generate_link("QB").each do |link|
-    gather_qb_stats(link, qbs)
+    gather_qb_stats(link, arr)
   end
 end
 
@@ -513,8 +504,11 @@ end
 
 
 
-gather_qb_stats("http://www.fftoday.com/stats/players/14191/Jimmy_Garoppolo", qbs)
+def display_player_pTDs(player, year)
+  unless player.seasons[year].class == NilClass
+    player.seasons[year].passing_touchdowns
+  end 
+end
 
 
 
-puts qbs[0].seasons[2016] 
