@@ -5,6 +5,8 @@ require 'pp'
 require 'csv'
 require 'date'
 
+
+#season classes. contain statistics for that season
 class QBSeason
   attr_accessor :age, :games, :passing_completions, :passing_attempts, :completion_percentage, :passing_yards, :passing_touchdowns, :interceptions, :passing_attempts, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
   def initialize(age, games, passing_completions, passing_attempts, completion_percentage, passing_yards, passing_touchdowns, interceptions, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
@@ -20,6 +22,14 @@ class QBSeason
     @rushing_yards = rushing_yards
     @rushing_touchdowns = rushing_touchdowns
   end 
+  
+  def fantasy_points
+    @passing_yards/25 + @passing_touchdowns*4 + @interceptions*-2 + @rushing_yards / 10 + @rushing_touchdowns*6 
+  end
+  
+  def fantasy_points_ppr(ppr)
+    @passing_yards/25 + @passing_touchdowns*4 + @interceptions*-2 + @rushing_yards / 10 + @rushing_touchdowns*6 
+  end
 end
 
 class RBSeason
@@ -36,6 +46,14 @@ class RBSeason
     @receiving_yards = receiving_yards
     @receiving_average = receiving_average
     @receiving_touchdowns = receiving_touchdowns
+  end
+  
+  def fantasy_points
+    @rushing_yards / 10 + @rushing_touchdowns*6 + @receiving_yards / 10 + @receiving_touchdowns * 6 
+  end
+  
+  def fantasy_points_ppr(ppr)
+    @passing_yards/25 + @passing_touchdowns*4 + @interceptions*-2 + @rushing_yards / 10 + @rushing_touchdowns*6 + @receptions * ppr
   end
 end 
 
@@ -54,6 +72,14 @@ class WRSeason
     @rushing_average = rushing_average
     @rushing_touchdowns = rushing_touchdowns
   end
+  
+  def fantasy_points
+    @rushing_yards / 10 + @rushing_touchdowns*6 + @receiving_yards / 10 + @receiving_touchdowns * 6 
+  end
+  
+  def fantasy_points_ppr(ppr)
+    @passing_yards/25 + @passing_touchdowns*4 + @interceptions*-2 + @rushing_yards / 10 + @rushing_touchdowns*6 + @receptions * ppr
+  end
 end
 
 class TESeason
@@ -66,6 +92,14 @@ class TESeason
     @receiving_yards = receiving_yards
     @receiving_average = receiving_average
     @receiving_touchdowns = receiving_touchdowns
+  end
+  
+  def fantasy_points
+    @receiving_yards / 10 + @receiving_touchdowns * 6 
+  end
+  
+  def fantasy_points_ppr(ppr)
+    @passing_yards/25 + @passing_touchdowns*4 + @interceptions*-2 + @rushing_yards / 10 + @rushing_touchdowns*6 + @receptions * ppr
   end
 end 
 
