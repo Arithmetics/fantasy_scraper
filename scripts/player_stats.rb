@@ -2,9 +2,7 @@ require 'rubygems'
 require 'nokogiri' 
 require 'open-uri'
 require 'pp'
-require 'googlecharts'
 require 'csv'
-require 'gruff'
 require 'date'
 
 class QBSeason
@@ -25,8 +23,9 @@ class QBSeason
 end
 
 class RBSeason
-  attr_accessor :games, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns
-  def initialize(games, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns)
+  attr_accessor :age, :games, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns
+  def initialize(age, games, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns)
+    @age = age
     @games = games
     @rushing_attempts = rushing_attempts
     @rushing_yards = rushing_yards
@@ -41,8 +40,9 @@ class RBSeason
 end 
 
 class WRSeason
-  attr_accessor :games, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
-  def initialize(games, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
+  attr_accessor :age, :games, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns, :rushing_attempts, :rushing_yards, :rushing_average, :rushing_touchdowns
+  def initialize(age, games, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
+    @age = age
     @games = games
     @targets = targets
     @receptions = receptions
@@ -57,8 +57,9 @@ class WRSeason
 end
 
 class TESeason
-  attr_accessor :games, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns
-  def initialize(games, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns)
+  attr_accessor :age, :games, :targets, :receptions, :receiving_yards, :receiving_average, :receiving_touchdowns
+  def initialize(age, games, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns)
+    @age = age
     @games = games
     @targets = targets
     @receptions = receptions
@@ -68,7 +69,7 @@ class TESeason
   end
 end 
 
-#class to create QB objects. each instance variable is an array of that stat by year. Coeresponding years are in the @year variable.
+#class to create Player objects
 class Player
   attr_accessor :name, :date_of_birth, :college, :draft_pick, :seasons
   def initialize(name, date_of_birth, college, draft_pick)
@@ -82,10 +83,14 @@ end
 
 #calculate age at begining of season
 def calc_age(dob, season_year)
-  date1 = Date.strptime(dob, '%Y-%m-%d')
-  date2 = Date.strptime("#{season_year}-09-07", '%Y-%m-%d')
-  days = date2 - date1
-  years = days/365.0
+  if dob != nil
+    date1 = Date.strptime(dob, '%Y-%m-%d')
+    date2 = Date.strptime("#{season_year}-09-07", '%Y-%m-%d')
+    days = date2 - date1
+    years = days/365.0
+  else
+    years = 0
+  end
 end
 
 
@@ -103,6 +108,7 @@ def gather_qb_stats(link, target_arr)
   
   #gather info for the Player class
   rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
+  rows = rows.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '').gsub(/\\x\d+/, "")  
   name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
   date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
   college = rows[/(?<=College: )(.+)(?=DOB)/]
@@ -233,6 +239,7 @@ def gather_rb_stats(link, target_arr)
   
   #gather info for the Player class
   rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
+  rows = rows.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '').gsub(/\\x\d+/, "")  
   name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
   date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
   college = rows[/(?<=College: )(.+)(?=DOB)/]
@@ -341,7 +348,7 @@ def gather_rb_stats(link, target_arr)
       #this next part populates the .seasons hash with keys from the years array and another hash with each stat
       
       years.each_with_index do |y, i|
-        player.seasons[y] = RBSeason.new(games[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i], targets[i], receptions[i], receiving_yards[i], receiving_average[i], receiving_touchdowns[i])
+        player.seasons[y] = RBSeason.new(calc_age(player.date_of_birth, y), games[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i], targets[i], receptions[i], receiving_yards[i], receiving_average[i], receiving_touchdowns[i])
       end
     
       target_arr << player
@@ -350,11 +357,22 @@ def gather_rb_stats(link, target_arr)
   end
 end 
 
-
-
 #creates a player object with seasons from a link and puts it in the target array
 def gather_wr_stats(link, target_arr)
   page = Nokogiri::HTML(open(link))
+  
+  #gather info for the Player class
+  rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
+  rows = rows.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '').gsub(/\\x\d+/, "")  
+  name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
+  date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
+  college = rows[/(?<=College: )(.+)(?=DOB)/]
+  draft_pick = rows[/(?<=Draft: )(.+)(?=College:)/]
+  
+  player = Player.new(name, date_of_birth, college, draft_pick)
+  
+  
+  #now gather info for the WRSeason class. This only make a series of arrays
   rows = page.xpath("//table[@width='100%' and .//td/b[contains(., 'FPts/G')]]//td").text
   if rows != nil
     x = rows.split("\n")
@@ -451,21 +469,120 @@ def gather_wr_stats(link, target_arr)
         end 
       end
     
-      name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
-    
-    
-      x = Widereceiver.new(name, years, games, targets, receptions, receiving_yards, receiving_average, receiving_touchdowns, rushing_attempts, rushing_yards, rushing_average, rushing_touchdowns)
-    
-      target_arr << x
+      #this next part populates the .seasons hash with keys from the years array and another hash with each stat
+      
+      years.each_with_index do |y, i|
+        player.seasons[y] = WRSeason.new(calc_age(player.date_of_birth, y), games[i], targets[i], receptions[i], receiving_yards[i], receiving_average[i], receiving_touchdowns[i], rushing_attempts[i], rushing_yards[i], rushing_average[i], rushing_touchdowns[i])
+      end
+
+      target_arr << player
     
     end
   end
 end 
 
+#creates a player object with seasons from a link and puts it in the target array
+def gather_te_stats(link, target_arr)
+  page = Nokogiri::HTML(open(link))
+  
+  #gather info for the Player class
+  rows = page.xpath("//table[@width='100%']//td[@class='bodycontent']").text
+  rows = rows.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '').gsub(/\\x\d+/, "")  
+  name = link.scan(/(?<=\d\/)(.*)(?=)/).join("")
+  date_of_birth = rows[/(?<=DOB: )(.+)(?= Age)/]
+  college = rows[/(?<=College: )(.+)(?=DOB)/]
+  draft_pick = rows[/(?<=Draft: )(.+)(?=College:)/]
+  
+  player = Player.new(name, date_of_birth, college, draft_pick)
+  
+  
+  #now gather info for the TESeason class. This only make a series of arrays
+  rows = page.xpath("//table[@width='100%' and .//td/b[contains(., 'FPts/G')]]//td").text
+  if rows != nil
+    x = rows.split("\n")
+    if x.length != 0
+      x = x[20..-4].map do |r|
+        r.strip
+      end
+      
+      end_val = x.index do |cell|
+                  cell.include? ("Projected")
+      end
+                
+                
+      if end_val.class == Fixnum
+        puts end_val
+        x = x[0...(end_val-1)]
+        
+      end
+    
+      years = []
+      x.each_with_index do |y,i|
+        if i % 12 == 0
+          years.push(y.to_i)
+        end
+      end
+      
+      games = []
+      x.each_with_index do |y,i|
+        if (i-2) % 12 == 0
+          games.push(y.to_i)
+        end
+      end
+    
+      targets = []
+      x.each_with_index do |y,i|
+        if (i-3) % 12 == 0
+          targets.push(y.to_i)
+        end
+      end
+    
+      receptions = []
+      x.each_with_index do |y,i|
+        if (i-4) % 12 == 0
+          receptions.push(y.to_i)
+        end
+      end
+    
+      receiving_yards = []
+      x.each_with_index do |y,i|
+        if (i-5) % 12 == 0
+          receiving_yards.push(y.gsub(",","").to_f)
+        end
+      end
+    
+      receiving_average = []
+      x.each_with_index do |y,i|
+        if (i-6) % 12 == 0
+          receiving_average.push(y.to_f)
+        end
+      end
+    
+      receiving_touchdowns = []
+      x.each_with_index do |y,i|
+        if (i-7) % 12 == 0
+          receiving_touchdowns.push(y.to_i)
+        end
+      end
+    
+      
+    
+      #this next part populates the .seasons hash with keys from the years array and another hash with each stat
+      
+      years.each_with_index do |y, i|
+        player.seasons[y] = TESeason.new(calc_age(player.date_of_birth, y), games[i], targets[i], receptions[i], receiving_yards[i], receiving_average[i], receiving_touchdowns[i])
+      end
+
+      target_arr << player
+      
+    end
+  end
+end 
 
 qbs = []
 rbs = []
 wrs = []
+tes = []
 
 def create_qbs(arr)
   generate_link("QB").each do |link|
@@ -479,19 +596,17 @@ def create_rbs(arr)
   end
 end
 
-def create_wrs
+def create_wrs(arr)
   generate_link("WR").each do |link|
-    gather_wr_stats(link, wrs)
+    gather_wr_stats(link, arr)
   end
 end
 
-
-
-
-
-
-
-
+def create_tes(arr)
+  generate_link("TE").each do |link|
+    gather_te_stats(link, arr)
+  end
+end
 
 def find_max_completion_percentage(qb_obj_array, min_games=0, min_percentage=0, max_percentage=100)
   qb_obj_array.each do |qb|
@@ -506,10 +621,7 @@ def find_max_completion_percentage(qb_obj_array, min_games=0, min_percentage=0, 
   end
 end
 
-
-
-
-def display_player_pTDs(player, year)
+def display_player_ptds(player, year)
   unless player.seasons[year].class == NilClass
     player.seasons[year].passing_touchdowns
   end 
